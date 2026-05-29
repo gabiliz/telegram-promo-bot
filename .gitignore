@@ -1,0 +1,13 @@
+.env
+*.session
+*.session-journal
+__pycache__/
+*.pyc
+.pytest_cache/
+promo_bot.db
+.venv/
+venv/
+.vscode/
+.idea/
+*.egg-info/
+.DS_Store
