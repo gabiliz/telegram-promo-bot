@@ -58,7 +58,7 @@ cp .env.example .env
 | `TELEGRAM_API_HASH` | Mesma página acima (32 caracteres hex) |
 | `BOT_TOKEN` | [@BotFather](https://t.me/BotFather) → `/newbot` |
 | `OWNER_CHAT_ID` | [@userinfobot](https://t.me/userinfobot) → ele responde com seu ID |
-| `MONITORED_GROUPS` | *(opcional)* IDs/usernames separados por vírgula. Na inicialização são migrados para a lista gerenciada pelo bot (no banco); depois disso você pode deixar vazio e gerenciar tudo via `/addgroup`/`/removegroup` |
+| `MONITORED_GROUPS` | *(opcional)* IDs/usernames separados por vírgula. Migrados para a lista do bot apenas na primeira execução (quando a lista no banco está vazia); depois gerencie tudo via `/addgroup`/`/removegroup` |
 | `DEFAULT_MAX_PRICE` | Preço máximo padrão. `0` desativa o filtro global |
 | `DATABASE_PATH` | Caminho do SQLite (default `promo_bot.db`) |
 | `SESSION_NAME` | Nome do arquivo de sessão do Telethon |
@@ -199,7 +199,7 @@ pytest tests/ -v
 | `TELEGRAM_API_HASH` | ✅ | — | API hash (32 chars) |
 | `BOT_TOKEN` | ✅ | — | Token do @BotFather |
 | `OWNER_CHAT_ID` | ✅ | — | Seu chat_id pessoal |
-| `MONITORED_GROUPS` | ❌ | `""` | CSV de IDs/usernames, migrados para a lista do bot na inicialização |
+| `MONITORED_GROUPS` | ❌ | `""` | CSV de IDs/usernames, migrados para a lista do bot só na primeira execução |
 | `DEFAULT_MAX_PRICE` | ❌ | `0.0` | Preço máximo global (0 desativa) |
 | `DATABASE_PATH` | ❌ | `promo_bot.db` | Caminho do SQLite |
 | `SESSION_NAME` | ❌ | `promo_bot_session` | Nome do `.session` |

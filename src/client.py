@@ -55,11 +55,14 @@ class PromoListener:
         self._logger.info("Telethon desconectado.")
 
     async def _seed_env_groups(self) -> None:
-        """Migra grupos definidos no .env para a lista gerenciada pelo bot.
+        """Migra grupos do .env para a lista gerenciada pelo bot, só na primeira vez.
 
-        Idempotente: roda sempre na inicialização, mas só insere o que ainda
-        não existir no banco. Depois disso o banco é a única fonte de verdade.
+        Semeia apenas quando o banco ainda não tem nenhum grupo. Assim, depois
+        que a lista existe, o banco é a única fonte de verdade e remoções via
+        /removegroup não são desfeitas por grupos que continuem no .env.
         """
+        if await self._repository.get_monitored_groups():
+            return
         for raw in self._config.monitored_groups:
             if await self._repository.add_monitored_group(raw):
                 self._logger.info("Grupo do .env migrado para o banco: %s", raw)
