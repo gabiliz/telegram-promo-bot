@@ -10,7 +10,7 @@ Grupos → Telethon listener → Processor (preço + normalização)
        → FilterEngine (keywords + preço + dedup) → Notifier → você
 ```
 
-Comandos `/add /remove /list /price /status` são recebidos por long polling na Bot API.
+Comandos `/add /remove /list /price /addgroup /removegroup /listgroups /quiet /history /stats /status` são recebidos por long polling na Bot API.
 
 ---
 
@@ -125,9 +125,46 @@ Atualiza ou remove o filtro de preço (`0` remove).
 /price monitor 0      → remove o filtro
 ```
 
+### `/addgroup <username_ou_id>` e `/removegroup <username_ou_id>`
+
+Adiciona ou remove grupos monitorados em tempo real, sem editar o `.env` nem
+reiniciar o processo. O grupo é validado via Telethon antes de ser salvo.
+
+```
+/addgroup Fraguas84Oficial
+/addgroup -1001234567890
+/removegroup cupomnarede
+```
+
+### `/listgroups`
+
+Lista os grupos monitorados, separando os vindos do `.env` dos adicionados via bot.
+
+### `/quiet <HH:MM HH:MM | off>`
+
+Configura o horário silencioso (fuso de Brasília). Durante o período, nenhuma
+notificação é enviada (a mensagem não é marcada como vista, então pode notificar
+depois do período). Suporta intervalos que atravessam a meia-noite.
+
+```
+/quiet 23:00 07:00   → ativa das 23h às 7h
+/quiet off           → desativa
+/quiet               → mostra a configuração atual
+```
+
+### `/history [n]`
+
+Mostra as últimas `n` promoções notificadas (padrão 5, máximo 20), com grupo,
+keywords, preço e cupom.
+
+### `/stats`
+
+Exibe totais de mensagens processadas/notificadas, notificações de hoje e os
+rankings de top keywords e top grupos.
+
 ### `/status`
 
-Mostra grupos monitorados, número de keywords, preço padrão e uptime.
+Mostra grupos monitorados (do `.env` + via bot), número de keywords, preço padrão e uptime.
 
 ---
 
@@ -139,6 +176,9 @@ Mostra grupos monitorados, número de keywords, preço padrão e uptime.
 3. Se a keyword não tem `max_price` mas há `DEFAULT_MAX_PRICE > 0`, ele é usado.
 4. Caso contrário, a keyword passa sem filtro de preço.
 5. Cada `(message_id, group_id)` é marcado como visto após o primeiro match — sem duplicatas.
+
+O processor também extrai cupons (entre crases `` `CODIGO` `` ou após palavras-chave como
+`cupom:`/`código:`), que aparecem na notificação como `🎟️ Cupom: CODIGO`.
 
 ---
 
@@ -225,7 +265,7 @@ telegram-promo-bot/
 │   ├── filter_engine.py   # keywords + preço + dedup
 │   ├── repository.py      # SQLite async
 │   ├── notifier.py        # envio formatado
-│   ├── commands.py        # /add /remove /list /price /status
+│   ├── commands.py        # /add /remove /list /price /addgroup /quiet /history /stats ...
 │   └── models.py          # dataclasses tipadas
 ├── tests/
 ├── main.py
