@@ -59,7 +59,58 @@ async def test_log_sent_notification(repo):
         raw_text="r",
         normalized_text="n",
         extracted_price=10.0,
+        coupon="PROMO10",
         matched_keywords=["monitor"],
         message_link="",
     )
     await repo.log_sent_notification(promo)
+
+
+async def test_monitored_group_lifecycle(repo):
+    assert await repo.add_monitored_group("promosbr", "Promos BR") is True
+    assert await repo.add_monitored_group("promosbr") is False  # idempotente
+    groups = await repo.get_monitored_groups()
+    assert groups == [{"identifier": "promosbr", "label": "Promos BR"}]
+    assert await repo.remove_monitored_group("promosbr") is True
+    assert await repo.remove_monitored_group("promosbr") is False
+    assert await repo.get_monitored_groups() == []
+
+
+async def test_quiet_hours_set_get_disable(repo):
+    from datetime import time
+
+    assert await repo.get_quiet_hours() is None
+    await repo.set_quiet_hours(time(23, 0), time(7, 30))
+    quiet = await repo.get_quiet_hours()
+    assert quiet == (time(23, 0), time(7, 30))
+    await repo.disable_quiet_hours()
+    assert await repo.get_quiet_hours() is None
+
+
+async def test_history_and_stats(repo):
+    promo = Promotion(
+        message_id=1,
+        group_id=2,
+        group_name="Fraguas84",
+        group_username=None,
+        raw_text="r",
+        normalized_text="n",
+        extracted_price=1564.0,
+        coupon="GOLEADA",
+        matched_keywords=["monitor"],
+        message_link="https://t.me/g/1",
+    )
+    await repo.log_sent_notification(promo)
+    await repo.mark_as_seen(1, 2)
+
+    history = await repo.get_recent_notifications(5)
+    assert len(history) == 1
+    assert history[0]["group_name"] == "Fraguas84"
+    assert history[0]["price"] == 1564.0
+    assert history[0]["coupon"] == "GOLEADA"
+
+    stats = await repo.get_stats()
+    assert stats["total_notified"] == 1
+    assert stats["total_processed"] == 1
+    assert stats["top_keywords"] == [("monitor", 1)]
+    assert stats["top_groups"] == [("Fraguas84", 1)]

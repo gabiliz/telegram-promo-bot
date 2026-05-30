@@ -58,3 +58,18 @@ async def test_no_keyword_match(repo):
     ok, matched = await engine.evaluate("monitor por r$ 1200", 1200.0, 1, 100)
     assert ok is False
     assert matched == []
+
+
+async def test_quiet_hours_suppresses_notification(repo, monkeypatch):
+    await repo.add_keyword("monitor", None)
+    engine = FilterEngine(repo, default_max_price=0.0)
+
+    async def _always_quiet() -> bool:
+        return True
+
+    monkeypatch.setattr(engine, "_is_quiet_time", _always_quiet)
+    ok, matched = await engine.evaluate("monitor 4k", 100.0, 1, 100)
+    assert ok is False
+    assert matched == []
+    # Não deve marcar como visto durante horário silencioso.
+    assert not await repo.is_already_seen(1, 100)
