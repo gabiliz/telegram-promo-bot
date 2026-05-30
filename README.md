@@ -254,6 +254,27 @@ Pronto — o bot vai reiniciar automaticamente e roda 24/7 sem custo.
 
 ---
 
+## Deploy contínuo (GitHub Actions)
+
+O workflow `.github/workflows/deploy.yml` faz deploy automático na VM a cada push na
+branch `main`: conecta via SSH, dá `git pull`, instala dependências, roda os testes e
+reinicia o serviço `promo-bot`.
+
+Para funcionar, configure os **secrets** do repositório em
+`Settings → Secrets and variables → Actions`:
+
+| Secret | Descrição |
+|---|---|
+| `SSH_HOST` | IP público da VM |
+| `SSH_USER` | Usuário SSH (ex.: `ubuntu`) |
+| `SSH_PRIVATE_KEY` | Chave privada SSH correspondente à chave autorizada na VM |
+
+Pré-requisitos na VM: o repositório já clonado em `~/telegram-promo-bot`, o virtualenv
+em `.venv`, o `.env` e o `.session` criados, e o serviço systemd `promo-bot` ativo.
+O usuário SSH precisa de `sudo` sem senha para `systemctl restart promo-bot`.
+
+---
+
 ## Estrutura
 
 ```
