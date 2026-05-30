@@ -20,6 +20,7 @@ class Promotion:
     raw_text: str
     normalized_text: str
     extracted_price: Optional[float]
+    coupon: Optional[str]
     matched_keywords: list[str]
     message_link: str
     detected_at: datetime = field(default_factory=datetime.utcnow)

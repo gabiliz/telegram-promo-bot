@@ -60,6 +60,8 @@ class Notifier:
             lines.append(
                 f"💰 *Preço detectado:* {_format_price_brl(promotion.extracted_price)}"
             )
+        if promotion.coupon:
+            lines.append(f"🎟️ *Cupom:* `{_escape_markdown(promotion.coupon)}`")
         lines.append("")
         lines.append(_escape_markdown(_truncate(promotion.raw_text)))
         lines.append("")
