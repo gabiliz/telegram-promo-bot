@@ -29,13 +29,15 @@ async def main() -> None:
     processor = MessageProcessor()
     filter_engine = FilterEngine(repo, config.default_max_price)
     notifier = Notifier(config.bot_token, config.owner_chat_id)
+    listener = PromoListener(config, filter_engine, processor, notifier, repo)
     command_handler = CommandHandler(
         config=config,
         repository=repo,
         notifier=notifier,
+        telethon_client=listener.client,
+        listener=listener,
         started_at=time.time(),
     )
-    listener = PromoListener(config, filter_engine, processor, notifier, repo)
     command_bot = CommandBot(config.bot_token, command_handler)
 
     stop_event = asyncio.Event()
