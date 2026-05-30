@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     telegram_api_hash: str
     bot_token: str
     owner_chat_id: int
-    monitored_groups: str
+    monitored_groups: str = ""
     default_max_price: float = 0.0
     database_path: str = "promo_bot.db"
     session_name: str = "promo_bot_session"

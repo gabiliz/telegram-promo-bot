@@ -41,6 +41,7 @@ class PromoListener:
         await self._client.start()  # type: ignore[func-returns-value]
         self._logger.info("Telethon conectado.")
 
+        await self._seed_env_groups()
         await self.reload_groups()
 
         if not self._chat_entities:
@@ -53,23 +54,25 @@ class PromoListener:
             await self._client.disconnect()  # type: ignore[func-returns-value]
         self._logger.info("Telethon desconectado.")
 
-    async def _merged_identifiers(self) -> list[str]:
-        """Combina grupos do .env com os salvos no banco, sem duplicatas."""
-        from_env = list(self._config.monitored_groups)
-        from_db = [
+    async def _seed_env_groups(self) -> None:
+        """Migra grupos definidos no .env para a lista gerenciada pelo bot.
+
+        Idempotente: roda sempre na inicialização, mas só insere o que ainda
+        não existir no banco. Depois disso o banco é a única fonte de verdade.
+        """
+        for raw in self._config.monitored_groups:
+            if await self._repository.add_monitored_group(raw):
+                self._logger.info("Grupo do .env migrado para o banco: %s", raw)
+
+    async def _group_identifiers(self) -> list[str]:
+        """Identificadores dos grupos monitorados (somente do banco)."""
+        return [
             g["identifier"] for g in await self._repository.get_monitored_groups()
         ]
-        seen: set[str] = set()
-        merged: list[str] = []
-        for identifier in from_env + from_db:
-            if identifier not in seen:
-                seen.add(identifier)
-                merged.append(identifier)
-        return merged
 
     async def reload_groups(self) -> None:
         """Re-resolve a lista de grupos e re-registra o handler com chats= atualizado."""
-        identifiers = await self._merged_identifiers()
+        identifiers = await self._group_identifiers()
         entities: list[Any] = []
         for raw in identifiers:
             try:

@@ -1,8 +1,9 @@
 import logging
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from datetime import time as dtime
 from typing import TYPE_CHECKING, Optional
+from zoneinfo import ZoneInfo
 
 from telethon import TelegramClient
 
@@ -15,6 +16,7 @@ if TYPE_CHECKING:
 
 _MAX_HISTORY = 20
 _DEFAULT_HISTORY = 5
+_BRAZIL_TZ = ZoneInfo("America/Sao_Paulo")
 
 
 class CommandHandler:
@@ -234,25 +236,16 @@ class CommandHandler:
         )
 
     async def _cmd_listgroups(self) -> None:
-        env_groups = list(self._config.monitored_groups)
-        db_groups = [g["identifier"] for g in await self._repo.get_monitored_groups()]
-        if not env_groups and not db_groups:
-            await self._notifier.send_text("📡 Nenhum grupo monitorado.")
+        groups = await self._repo.get_monitored_groups()
+        if not groups:
+            await self._notifier.send_text(
+                "📡 Nenhum grupo monitorado. Use /addgroup para adicionar."
+            )
             return
         lines = ["📡 *Grupos monitorados:*", ""]
-        idx = 1
-        if env_groups:
-            lines.append("Do .env:")
-            for g in env_groups:
-                lines.append(f"{idx}. {g}")
-                idx += 1
-        if db_groups:
-            if env_groups:
-                lines.append("")
-            lines.append("Adicionados via bot:")
-            for g in db_groups:
-                lines.append(f"{idx}. {g}")
-                idx += 1
+        for idx, g in enumerate(groups, start=1):
+            label = f" — {g['label']}" if g["label"] else ""
+            lines.append(f"{idx}. {g['identifier']}{label}")
         await self._notifier.send_text("\n".join(lines))
 
     async def _resolve_entity(self, raw: str):
@@ -359,9 +352,13 @@ class CommandHandler:
     @staticmethod
     def _format_history_date(sent_at: str) -> str:
         try:
-            return datetime.fromisoformat(sent_at).strftime("%d/%m %H:%M")
+            dt = datetime.fromisoformat(sent_at)
         except ValueError:
             return sent_at
+        # sent_at é gravado em UTC (naive); converte para o horário de Brasília.
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt.astimezone(_BRAZIL_TZ).strftime("%d/%m %H:%M")
 
     async def _cmd_stats(self) -> None:
         stats = await self._repo.get_stats()
@@ -393,13 +390,10 @@ class CommandHandler:
             default_price = _format_price_brl(self._config.default_max_price)
         else:
             default_price = "sem limite"
-        env_count = len(self._config.monitored_groups)
-        db_count = len(await self._repo.get_monitored_groups())
-        total_groups = env_count + db_count
+        group_count = len(await self._repo.get_monitored_groups())
         await self._notifier.send_text(
             "🤖 *Status do Bot*\n\n"
-            f"📡 Grupos monitorados: {total_groups} "
-            f"({env_count} do .env + {db_count} via bot)\n"
+            f"📡 Grupos monitorados: {group_count}\n"
             f"🏷️ Keywords ativas: {len(keywords)}\n"
             f"💰 Preço máximo padrão: {default_price}\n"
             f"⏱️ Online há: {hours}h {minutes}min"
