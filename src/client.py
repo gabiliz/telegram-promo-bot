@@ -30,29 +30,21 @@ class PromoListener:
         )
         self._chat_entities: list[Any] = []
         self._stop_event = asyncio.Event()
+        self._handler_registered = False
         self._logger = logging.getLogger(__name__)
+
+    @property
+    def client(self) -> TelegramClient:
+        return self._client
 
     async def start(self) -> None:
         await self._client.start()  # type: ignore[func-returns-value]
         self._logger.info("Telethon conectado.")
 
-        for raw in self._config.monitored_groups:
-            try:
-                entity = await self._resolve_entity(raw)
-                self._chat_entities.append(entity)
-                self._logger.info("Monitorando grupo: %s", raw)
-            except Exception:
-                self._logger.exception("Falha ao resolver grupo %s", raw)
+        await self.reload_groups()
 
         if not self._chat_entities:
             self._logger.error("Nenhum grupo válido para monitorar.")
-            return
-
-        self._client.add_event_handler(
-            self._on_new_message,
-            events.NewMessage(chats=self._chat_entities),
-        )
-        self._logger.info("Listener registrado para %d grupo(s).", len(self._chat_entities))
         await self._stop_event.wait()
 
     async def stop(self) -> None:
@@ -60,6 +52,55 @@ class PromoListener:
         if self._client.is_connected():
             await self._client.disconnect()  # type: ignore[func-returns-value]
         self._logger.info("Telethon desconectado.")
+
+    async def _merged_identifiers(self) -> list[str]:
+        """Combina grupos do .env com os salvos no banco, sem duplicatas."""
+        from_env = list(self._config.monitored_groups)
+        from_db = [
+            g["identifier"] for g in await self._repository.get_monitored_groups()
+        ]
+        seen: set[str] = set()
+        merged: list[str] = []
+        for identifier in from_env + from_db:
+            if identifier not in seen:
+                seen.add(identifier)
+                merged.append(identifier)
+        return merged
+
+    async def reload_groups(self) -> None:
+        """Re-resolve a lista de grupos e re-registra o handler com chats= atualizado."""
+        identifiers = await self._merged_identifiers()
+        entities: list[Any] = []
+        for raw in identifiers:
+            try:
+                entities.append(await self._resolve_entity(raw))
+                self._logger.info("Monitorando grupo: %s", raw)
+            except Exception:
+                self._logger.exception("Falha ao resolver grupo %s", raw)
+
+        self._chat_entities = entities
+
+        if self._handler_registered:
+            self._client.remove_event_handler(self._on_new_message)
+            self._handler_registered = False
+
+        if not entities:
+            return
+
+        self._client.add_event_handler(
+            self._on_new_message,
+            events.NewMessage(chats=entities),
+        )
+        self._handler_registered = True
+        self._logger.info("Listener registrado para %d grupo(s).", len(entities))
+
+    async def add_group(self, identifier: str) -> None:
+        """Re-registra o handler para incluir o grupo recém-adicionado."""
+        await self.reload_groups()
+
+    async def remove_group(self, identifier: str) -> None:
+        """Re-registra o handler sem o grupo removido."""
+        await self.reload_groups()
 
     async def _resolve_entity(self, raw: str) -> Any:
         try:
@@ -84,7 +125,7 @@ class PromoListener:
                 return
 
             chat = await event.get_chat()
-            normalized, price = self._processor.process_message(raw_text)
+            normalized, price, coupon = self._processor.process_message(raw_text)
 
             should_notify, matched = await self._filter_engine.evaluate(
                 normalized_text=normalized,
@@ -106,6 +147,7 @@ class PromoListener:
                 raw_text=raw_text,
                 normalized_text=normalized,
                 extracted_price=price,
+                coupon=coupon,
                 matched_keywords=matched,
                 message_link=link,
             )
