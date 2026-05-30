@@ -1,7 +1,11 @@
 import logging
+from datetime import datetime
 from typing import Optional
+from zoneinfo import ZoneInfo
 
 from src.repository import KeywordRepository
+
+_QUIET_HOURS_TZ = ZoneInfo("America/Sao_Paulo")
 
 
 class FilterEngine:
@@ -21,6 +25,9 @@ class FilterEngine:
         message_id: int,
         group_id: int,
     ) -> tuple[bool, list[str]]:
+        if await self._is_quiet_time():
+            return False, []
+
         if await self._repo.is_already_seen(message_id, group_id):
             return False, []
 
@@ -51,3 +58,14 @@ class FilterEngine:
 
         await self._repo.mark_as_seen(message_id, group_id)
         return True, passed
+
+    async def _is_quiet_time(self) -> bool:
+        quiet = await self._repo.get_quiet_hours()
+        if quiet is None:
+            return False
+        now = datetime.now(_QUIET_HOURS_TZ).time()
+        start, end = quiet
+        if start <= end:
+            return start <= now <= end
+        # Atravessa a meia-noite, ex.: 23:00 → 07:00
+        return now >= start or now <= end
